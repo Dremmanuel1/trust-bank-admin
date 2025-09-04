@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trust Bank Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      .card {
+        @apply bg-white p-6 rounded-xl shadow-md;
+      }
+      .btn {
+        @apply bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors;
+      }
+      .input {
+        @apply w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
+      }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto space-y-8">
+        <h1 class="text-4xl font-bold text-center text-gray-800">Trust Bank Admin Dashboard</h1>
+
+        <!-- API Configuration -->
+        <div class="card space-y-4">
+            <h2 class="text-2xl font-bold text-gray-700">API Configuration</h2>
+            <div>
+                <label for="api-url" class="block text-sm font-medium text-gray-700">API Base URL</label>
+                <input type="text" id="api-url" class="input mt-1" value="http://localhost:3000" placeholder="e.g., https://my-trust-bank-api.onrender.com">
+            </div>
+            <div>
+                <label for="admin-token" class="block text-sm font-medium text-gray-700">Admin Token</label>
+                <input type="password" id="admin-token" class="input mt-1" value="supersecrettoken">
+            </div>
+            <button id="save-config-btn" class="btn">Save Configuration</button>
+        </div>
+
+        <!-- Account Management Actions -->
+        <div class="grid md:grid-cols-2 gap-8">
+            <!-- Create Account -->
+            <div class="card space-y-4">
+                <h2 class="text-2xl font-bold text-gray-700">Create Account</h2>
+                <div>
+                    <label for="create-name" class="block text-sm font-medium text-gray-700">Account Name</label>
+                    <input type="text" id="create-name" class="input mt-1" placeholder="Jane Doe">
+                </div>
+                <button id="create-account-btn" class="btn">Create Account</button>
+            </div>
+
+            <!-- List All Accounts -->
+            <div class="card space-y-4">
+                <h2 class="text-2xl font-bold text-gray-700">All Accounts (Admin)</h2>
+                <button id="list-accounts-btn" class="btn">List All Accounts</button>
+            </div>
+
+            <!-- Reset Balance -->
+            <div class="card space-y-4">
+                <h2 class="text-2xl font-bold text-gray-700">Reset Balance (Admin)</h2>
+                <div>
+                    <label for="reset-number" class="block text-sm font-medium text-gray-700">Account Number</label>
+                    <input type="text" id="reset-number" class="input mt-1" placeholder="12345678">
+                </div>
+                <button id="reset-balance-btn" class="btn">Reset Balance</button>
+            </div>
+
+            <!-- Delete Account -->
+            <div class="card space-y-4">
+                <h2 class="text-2xl font-bold text-gray-700">Delete Account (Admin)</h2>
+                <div>
+                    <label for="delete-number" class="block text-sm font-medium text-gray-700">Account Number</label>
+                    <input type="text" id="delete-number" class="input mt-1" placeholder="12345678">
+                </div>
+                <button id="delete-account-btn" class="btn bg-red-600 hover:bg-red-700">Delete Account</button>
+            </div>
+        </div>
+
+        <!-- Output Area -->
+        <div class="card">
+            <h2 class="text-2xl font-bold text-gray-700">Response</h2>
+            <pre id="output-area" class="bg-gray-50 p-4 rounded-lg mt-2 text-sm text-gray-800 overflow-auto"></pre>
+        </div>
+    </div>
+
+    <script>
+        const apiUrlInput = document.getElementById('api-url');
+        const adminTokenInput = document.getElementById('admin-token');
+        const saveConfigBtn = document.getElementById('save-config-btn');
+        const outputArea = document.getElementById('output-area');
+        
+        // Form inputs
+        const createNameInput = document.getElementById('create-name');
+        const resetNumberInput = document.getElementById('reset-number');
+        const deleteNumberInput = document.getElementById('delete-number');
+        
+        // Buttons
+        const createAccountBtn = document.getElementById('create-account-btn');
+        const listAccountsBtn = document.getElementById('list-accounts-btn');
+        const resetBalanceBtn = document.getElementById('reset-balance-btn');
+        const deleteAccountBtn = document.getElementById('delete-account-btn');
+
+        // Load config from localStorage
+        const savedApiUrl = localStorage.getItem('apiUrl');
+        const savedAdminToken = localStorage.getItem('adminToken');
+        if (savedApiUrl) apiUrlInput.value = savedApiUrl;
+        if (savedAdminToken) adminTokenInput.value = savedAdminToken;
+
+        // Save config to localStorage
+        saveConfigBtn.addEventListener('click', () => {
+            localStorage.setItem('apiUrl', apiUrlInput.value);
+            localStorage.setItem('adminToken', adminTokenInput.value);
+            displayOutput('Configuration saved!');
+        });
+        
+        // Helper function to make API calls
+        async function callApi(endpoint, options = {}) {
+            const apiUrl = apiUrlInput.value;
+            const adminToken = adminTokenInput.value;
+            
+            try {
+                const response = await fetch(`${apiUrl}${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-token': adminToken,
+                        ...options.headers
+                    }
+                });
+
+                const isJson = response.headers.get('content-type')?.includes('application/json');
+                const data = isJson ? await response.json() : await response.text();
+                
+                if (!response.ok) {
+                    throw new Error(isJson && data.error ? data.error : `Request failed with status ${response.status}`);
+                }
+                displayOutput(JSON.stringify(data, null, 2));
+            } catch (error) {
+                displayOutput(`Error: ${error.message}`);
+            }
+        }
+        
+        // Helper function to display output
+        function displayOutput(data) {
+            outputArea.textContent = data;
+        }
+
+        // --- Button Event Listeners ---
+        
+        createAccountBtn.addEventListener('click', () => {
+            const name = createNameInput.value;
+            if (!name) {
+                displayOutput("Please enter a name to create an account.");
+                return;
+            }
+            callApi('/create', {
+                method: 'POST',
+                body: JSON.stringify({ name })
+            });
+        });
+
+        listAccountsBtn.addEventListener('click', () => {
+            callApi('/admin/list');
+        });
+
+        resetBalanceBtn.addEventListener('click', () => {
+            const accountNumber = resetNumberInput.value;
+            if (!accountNumber) {
+                displayOutput("Please enter an account number to reset the balance.");
+                return;
+            }
+            callApi('/admin/reset', {
+                method: 'POST',
+                body: JSON.stringify({ accountNumber })
+            });
+        });
+
+        deleteAccountBtn.addEventListener('click', () => {
+            const accountNumber = deleteNumberInput.value;
+            if (!accountNumber) {
+                displayOutput("Please enter an account number to delete.");
+                return;
+            }
+            callApi(`/admin/delete/${accountNumber}`, {
+                method: 'DELETE'
+            });
+        });
+
+        // Initialize display
+        displayOutput('Welcome to the Trust Bank Admin Dashboard. Configure your API details above.');
+    </script>
+</body>
+</html>
